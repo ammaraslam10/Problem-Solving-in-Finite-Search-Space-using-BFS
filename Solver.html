@@ -1,0 +1,213 @@
+<script src="pjs.js"></script>
+<script type="text/processing" data-processing-target="mycanvas">
+// This script is for visualization
+
+var CW = 570, CH = 700;
+void setup() {
+  size(CW,CH);
+  //background(125);
+  //fill(255);
+  redraw();
+  textFont(norm, 14); 
+}
+void draw_pos = function(i, j, x, y) {
+	text(state_num[v_mat[i][j]] + " " + v_mat[i][j], CW/2 - textWidth(state_num[v_mat[i][j]])/2 + x, 20 + y);	
+};
+var process = function(baseline, i, d, corr) {
+	var tmp = textWidth(state_num[v_mat[i][0]]) * v_mat[i].length;
+	var tmp2 = textWidth(state_num[v_mat[i][0]]);
+	var nxt_baseline = 0;
+	for(var j = 0; j < v_mat[i].length; j++) {
+		if(v_mat[i][j] == corr) { 
+			fill(0, 150, 0); 
+			nxt_baseline = baseline-tmp/2 + j*tmp2 + tmp2/2;
+		} else fill(255, 46, 46);
+		draw_pos(i, j, baseline-tmp/2 + j*tmp2 + tmp2/2, d+1*120 + d*120);
+	}
+	var line_x_s = baseline - tmp / 2 + j * tmp2 + tmp2 + 30;
+	var line_x_e = nxt_baseline-tmp/2 + j * tmp2 + tmp2 + 30;
+	var line_y_s = d*120+50;
+	var line_y_e = d+1*120 + d*120 + 50;
+	line(line_x_s, line_y_s, line_x_e, line_y_e);
+	text(v_text[d], line_x_s + (line_x_e-line_x_s)/2 - textWidth(v_text[d]) / 2, line_y_s + (line_y_e-line_y_s)/2);
+	return nxt_baseline;
+};
+void draw(){
+	background(255);
+	if(v_visual) {
+		stroke(133, 68, 68);
+		fill(0, 0, 150);
+		if(v_what != -1) draw_pos(v_what, 0, 0, 0);
+		var baseline = 0;
+		var child_of = v_what;
+		for(var i = 0; i < v_path.length; i++) {
+			var old_baseline = baseline;
+			baseline = process(baseline, child_of, i, v_path[i]);
+			child_of = v_path[i];
+		}
+	}
+}
+</script>
+
+
+<script> 
+// More globals for visualization
+var state_num = [], v_path = [], v_text = [], v_mat = [], act_num = [];
+var v_visual = false, v_what = -1;
+
+function visual_vtext(path) {
+	for(var i = 0 ; i < path.length; i++) v_text.push(act_num[path[i]]);
+console.log(v_text);
+}
+function make_visual_path(path) {
+	for(var i = 0; i < state_num.length; i++) {
+		state_num[i]=state_num[i].replace(/\s/g, '\n');
+		state_num[i]=state_num[i].replace('(', '\n');
+		state_num[i]=state_num[i].replace(')', '\n');
+	}
+	v_path = [];
+	while(path.parent != -1) {
+		v_path.unshift(path.state);
+		path = path.parent;
+	}
+}
+
+
+// Solver that will take matrix (transition table) and (source,dest) to return a path to actions to take in integer
+function solve(matrix, what) {
+	if(what[0] == what[1]) return [];					// No path (final = init)
+	var success = false;							// Found? by default no
+	var seen = new Array(matrix.length);					// nodes already visited
+	var q = [{state: what[0], action: -1, cost: 1, parent: -1}];		// Init queue with node 0 
+	for(var i = 0; i < seen.length; i++) seen[i] = 0;			// initialize visited to no
+	seen[what[0]] = 1; 							// Set seen status
+	if(matrix.length != 0) var actions_length = matrix[0].length;		// If matrix: set actions count
+	else var actions_length = 0;						// no actions because no matrix
+	while(q.length > 0) {							// Queue empty?
+		var now = q[0];							// get node 0
+		q.shift();							// Remove node 0 from queue
+		for(var i = 0; i < actions_length; i++) {			// loop the possible actions
+			if(seen[matrix[now.state][i]] == 0) {			// visited?
+				q.push({state: matrix[now.state][i], action: i, cost: 1, parent: now});
+										// Push new object in queue
+				if(matrix[now.state][i] == what[1]) { 		// is final state?
+					success = true; 			// yes, success
+					var path = q[q.length - 1];		// set path to last node found
+					q = []; 				// empty nodes queue (end main loop)
+					actions_length = 0; 			// end sub loop
+				}
+				seen[matrix[now.state][i]] = 1;			// set this node to seen
+			}
+		}
+	}
+	
+	if(v_visual == true && v_path.length == 0) make_visual_path(path);
+	var path_correct = [];							// Path (actions in correct order)
+	if(success == true) {							// Was path found?
+		while(path.state != what[0]) { 					// loop through nodes
+			path_correct.unshift(path.action);			// Push action number in start of array
+			path = path.parent;					// repeat for parent
+		}
+	} 
+	return path_correct;							// Return set of actions in order in number
+} 
+
+// main function: take in array of raw file content => convert to data => send to path solver and display actions
+function main(what) {
+	var lines = what.split(/\r?\n/);					// Split by \n and get all lines of file
+	if(document.getElementById('visual').checked == true) v_visual = true; else v_visual = false;
+	state_num = []; v_path = []; v_text = []; v_mat = []; act_num = []; v_what = -1, matrix = [];
+	// Variables for visuals
+
+	var setup_vars = lines[0].match(/[^\s]+/g);			// Split line 0 by spaces
+	var M = parseInt(setup_vars[0]);
+	var N = parseInt(setup_vars[1]);
+	var T = parseInt(setup_vars[2]);
+	//console.log(M+" "+N+" "+T);
+
+	var states_in_english = [];					// Save state number in hashtable w/ ref to english 
+	for(var i = 2; i < 2 + M; i++) {
+		states_in_english[lines[i]] = i - 2;
+		if(v_visual == true) state_num[i - 2] = lines[i];
+	}
+	var next = 2 + M + 1;
+	var actions_in_number = [];
+
+	for(var i = next; i < next + N; i++) {				// Save action english names in array w/ ref to number
+		actions_in_number[i - next] = lines[i];		
+	}
+	if(v_visual == true) act_num = actions_in_number;
+
+	next = next + N + 1;
+	var matrix = [];
+	for(var i = next; i < next + M; i++){				// Save matrix in numbers
+		matrix[i - next] = lines[i].match(/[^\s]+/g);
+	}
+	if(v_visual == true) v_mat = matrix;
+
+	document.getElementById("content").innerHTML = "<br>Result sent to stdout! (press f12 to see console on chrome)<br><br>";
+	document.getElementById("content").innerHTML += "<b>Result:</b><br><br>";
+
+	next = next + M + 1;
+	v_what = -1, v_path = [], v_text = [];
+	for(var i = next; i < next + T; i++) {					// Loop for each test case,
+		var single_case = lines[i].split(') (');			// split by ) (
+		single_case[0] = states_in_english[single_case[0] + ')'];	// find state number
+		single_case[1] = states_in_english['(' + single_case[1]];
+		if(v_visual == true && v_what == -1) v_what = single_case[0];
+
+		var result = ""; 
+		var path = solve(matrix, single_case);				// Send matrix and (source,dest) to solver
+
+		if(path.length == 0) {
+			if(typeof single_case[0] !== 'undefined' && single_case[0] == single_case[1]) result = "Can't find path: source is destination";
+			else result = "Can't find path: none exists";
+		} else {
+			if(v_visual == true && v_text.length == 0) visual_vtext(path);
+			for(var j = 0; j < path.length - 1; j++) result += (actions_in_number[path[j]] + "->");
+			result += actions_in_number[path[path.length - 1]];
+		}
+		console.log(result);
+		document.getElementById("content").innerHTML += (result + "<br>");
+	}
+
+	//console.log(states_in_english);
+	//console.log(actions_in_number);
+	//console.log(matrix);
+	//console.log(test_cases);
+}
+
+// Function called as soon as file selected
+function readSingleFile(e) {
+	document.getElementById("content").innerHTML = "";
+	var file = e.target.files[0];
+	if (!file) {
+		return;
+	}
+	var reader = new FileReader();
+	reader.onload = function(e) {
+		main(e.target.result);						// file read, send contents to main function
+	};
+	reader.readAsText(file);
+	document.getElementById('file-input').value = "";
+}
+</script> 
+
+
+<style>body {font-family:monospace;}</style>
+<body><h1>Select a file to run</h1>
+<input type="file" id="file-input"><br><br>
+<input type="checkbox" id="visual">Visualise the steps of Test Case 1 (need to upload again)
+
+<div id="content"></div><br>
+
+<canvas id="mycanvas" style="outline: none; image-rendering: -webkit-optimize-contrast !important;" tabindex="0" width="570" height="700"></canvas>
+
+<script>
+document.getElementById('file-input')
+  .addEventListener('change', readSingleFile, false);
+
+window.onerror = function(error) {
+  		console.log("Error! Likely caused by wrong file formatting " + error);
+};  		if(error != "") document.getElementById("content").innerHTML = "Error! Likely caused by wrong file formatting";
+</script>
