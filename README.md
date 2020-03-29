@@ -17,6 +17,6 @@ of each state after applying each action. Transition matrix is followed by an em
 by T number of test cases. Each test case is represented in a line. Each line is a pair of strings separated by
 tab, first string is a state representing initial state and second string is also a state representing final state.
 
-The script will print results on console and it will display them on screen as well, There's a checkbox to enable/disable the visualization. 
+The script will print results on console (Standard output of JavaScript) and it will display them on screen as well, There's a checkbox to enable/disable the visualization. 
 
 A sample test case file is present as new_run.txt
