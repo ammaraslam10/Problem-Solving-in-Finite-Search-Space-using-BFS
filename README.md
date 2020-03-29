@@ -2,7 +2,8 @@
 
 This is a simple BFS algortihm that will solve problems by searching finite search space
 
-It is written in JavaScript and uses ProcessingJs to visualise the tree.
+It is written in JavaScript and uses ProcessingJs to visualise the tree. 
+Open Solver.html on a browser and select an input file.
 Tested on Chrome 80.0.3987.149 only.
 
 Input file format:
