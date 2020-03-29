@@ -151,9 +151,9 @@ function main(what) {
 	next = next + M + 1;
 	v_what = -1, v_path = [], v_text = [];
 	for(var i = next; i < next + T; i++) {					// Loop for each test case,
-		var single_case = lines[i].split(') (');			// split by ) (
-		single_case[0] = states_in_english[single_case[0] + ')'];	// find state number
-		single_case[1] = states_in_english['(' + single_case[1]];
+		var single_case = lines[i].split('\t');				// split by ) (
+		single_case[0] = states_in_english[single_case[0]];		// find state number
+		single_case[1] = states_in_english[single_case[1]];
 		if(v_visual == true && v_what == -1) v_what = single_case[0];
 
 		var result = ""; 
